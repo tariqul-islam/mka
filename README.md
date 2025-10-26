@@ -24,10 +24,11 @@ cka_score = CKA(X,Y) #only with RBF kernel
 
 ## Citation
 
-Is you use the code, please consider citing our papers
+If you use the code, please consider citing our papers:
+
 ```
 @article{islam2025mkarobust,
-  title={Kernel Alignment using Manifold Approximation},
+  title={Manifold Approximation leads to Robust Kernel Alignment},
   author={Islam, Mohammad Tariqul and Liu, Du and Sarkar, Deblina},
   journal={ArXiv}
 }
