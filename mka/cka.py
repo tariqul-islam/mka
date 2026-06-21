@@ -43,7 +43,7 @@ def cka_rbf_kernel_matrix(X, si = None):
     
 
 @numba.jit(nopython=True)    
-def cka_rbf(X,Y,si=None):
+def cka_rbf(X,Y,si=None, diag=True):
     N = len(X)
     
     X = X #- np.mean(X,axis=0)
@@ -51,6 +51,11 @@ def cka_rbf(X,Y,si=None):
 
     K = cka_rbf_kernel_matrix(X,si)
     L = cka_rbf_kernel_matrix(Y,si)
+    
+    if not diag:
+        for i in range(N):
+            K[i,i] = 0
+            L[i,i] = 0
     
     #print(K,L)
     
@@ -133,8 +138,8 @@ def kCKA(X,Y, n_neighbors=15, diag=True, get_matrices=False):
     else:
         return score
         
-def cka_rbf_lite(X,Y,si=None, get_matrices=False):
-    score, K, L = cka_rbf(X,Y,si=si)
+def cka_rbf_lite(X,Y,si=None, diag=True, get_matrices=False):
+    score, K, L = cka_rbf(X,Y,si=si, diag=diag)
     if get_matrices:
         return score, K, L
     else:
