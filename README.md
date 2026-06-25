@@ -17,7 +17,7 @@ from mka import MKA, kCKA, CKA_RBF
 
 mka_score = MKA(X,Y) #X,Y: NxF matrix with N samples and F features
 kcka_score = kCKA(X,Y) #only with RBF Kernel
-cka_score = CKA(X,Y) #only with RBF kernel
+cka_score = CKA_RBF(X,Y) #only with RBF kernel
 
 ```
 
