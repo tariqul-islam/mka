@@ -265,7 +265,6 @@ def CKNNA(
     n_neighbors=15,
     kernel="rbf",
     si=None,
-    unbiased=False,
     diag=True,
     get_matrices=False,
 ):
@@ -275,7 +274,6 @@ def CKNNA(
         n_neighbors=n_neighbors,
         kernel=kernel,
         si=si,
-        unbiased=unbiased,
         diag=diag,
     )
 
