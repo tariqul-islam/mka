@@ -252,7 +252,7 @@ def cknna(X, Y, n_neighbors=15, kernel="rbf", si=None, diag=True):
 
     KHLH = np.trace(K_masked.dot(H).dot(L_masked).dot(H))
     KHKH = np.trace(K.dot(H).dot(K).dot(H))
-    LHLH  np.trace(L.dot(H).dot(L).dot(H))
+    LHLH = np.trace(L.dot(H).dot(L).dot(H))
 
     score = KHLH / np.sqrt(KHKH * LHLH)
 
