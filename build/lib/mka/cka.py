@@ -83,17 +83,9 @@ def tcka_rbf_kernel_matrix(X, n_neighbors=15):
     sort_idx = np.zeros((N,n_neighbors), dtype=numba.int64)
     dists_2 = np.zeros((N, n_neighbors))
     
-    sort_idx = np.argsort(dists, axis=1)
-
-    # Drop the first entry, assumed to be the point itself.
-    sort_idx = sort_idx[:, 1:n_neighbors + 1]
-
-    # Gather the corresponding distances.
-    dists_2 = np.take_along_axis(
-        dists,
-        sort_idx,
-        axis=1,
-    )
+    for i in range(N):
+        sort_idx[i,:] = np.argsort(dists[i])[1:n_neighbors+1]
+        dists_2[i,:] = dists[i,sort_idx[i,:]]
     
     #sort_idx = np.argsort(dists, axis=1)
     #sort_idx = sort_idx.astype(np.int32)

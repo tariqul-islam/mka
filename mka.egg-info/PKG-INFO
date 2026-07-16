@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: mka
+Version: 0.1
+Summary: alpha release of MKA
+Home-page: https://github.com/tariqul-islam/mka
+Author: Tariq
+Author-email: mhdtariqul@gmail.com
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: summary
