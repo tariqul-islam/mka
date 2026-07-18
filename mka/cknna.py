@@ -1,17 +1,8 @@
 import numpy as np
-
 import numba
-from numba import prange
 
-import random
+from .cka import cka_rbf_kernel_matrix, linear_kernel_matrix
 
-from .helper import euclidean_distances_numba, frobenius_norm_sq
-
-from sklearn.metrics.pairwise import euclidean_distances
-
-@numba.jit(nopython=True)
-def linear_kernel_matrix(X):
-    return X.dot(X.T)
 
 @numba.jit(nopython=True)
 def topk_mask_from_kernel(K, n_neighbors=15, exclude_diag=True):
@@ -25,6 +16,7 @@ def topk_mask_from_kernel(K, n_neighbors=15, exclude_diag=True):
             row[i] = -np.inf
 
         sort_idx = np.argsort(row)[::-1]
+
         for j in range(n_neighbors):
             mask[i, sort_idx[j]] = 1.0
 
@@ -32,93 +24,77 @@ def topk_mask_from_kernel(K, n_neighbors=15, exclude_diag=True):
 
 
 @numba.jit(nopython=True)
-def hsic_biased_masked(K, L):
+def row_center_kernel(K):
     N = K.shape[0]
-    H = np.eye(N) - 1.0 / N * np.ones((N, N))
-    return np.trace(K.dot(H).dot(L).dot(H))
-
-
-@numba.jit(nopython=True)
-def hsic_unbiased_masked(K, L):
-    N = K.shape[0]
-
-    if N <= 3:
-        return np.nan
-
-    K_tilde = K.copy()
-    L_tilde = L.copy()
+    Kc = np.zeros((N, N))
 
     for i in range(N):
-        K_tilde[i, i] = 0.0
-        L_tilde[i, i] = 0.0
+        row_mean = 0.0
 
-    term_1 = np.sum(K_tilde * L_tilde.T)
-    term_2 = np.sum(K_tilde) * np.sum(L_tilde) / ((N - 1) * (N - 2))
-    term_3 = 2.0 * np.sum(K_tilde.dot(L_tilde)) / (N - 2)
+        for j in range(N):
+            row_mean += K[i, j]
 
-    return (term_1 + term_2 - term_3) / (N * (N - 3))
+        row_mean /= N
+
+        for j in range(N):
+            Kc[i, j] = K[i, j] - row_mean
+
+    return Kc
 
 
 @numba.jit(nopython=True)
-def cknna_similarity(K, L, n_neighbors=15, unbiased=False):
+def masked_frobenius_inner(Kc, Lc, mask):
+    return np.sum(mask * Kc * Lc)
+
+
+@numba.jit(nopython=True)
+def cknna_from_kernels(K, L, n_neighbors=15):
     mask_K = topk_mask_from_kernel(K, n_neighbors=n_neighbors, exclude_diag=True)
     mask_L = topk_mask_from_kernel(L, n_neighbors=n_neighbors, exclude_diag=True)
 
-    # CKNNA: only pairs that are nearest neighbors in both kernels contribute.
-    mask = mask_K * mask_L
+    mutual_mask = mask_K * mask_L
 
-    K_masked = mask * K
-    L_masked = mask * L
+    Kc = row_center_kernel(K)
+    Lc = row_center_kernel(L)
 
-    if unbiased:
-        return hsic_unbiased_masked(K_masked, L_masked)
-    else:
-        return hsic_biased_masked(K_masked, L_masked)
+    KHLH = masked_frobenius_inner(Kc, Lc, mutual_mask)
+    KHKH = masked_frobenius_inner(Kc, Kc, mask_K)
+    LHLH = masked_frobenius_inner(Lc, Lc, mask_L)
+
+    denom = np.sqrt(KHKH * LHLH)
+
+    if denom < 1e-12:
+        return 0.0
+
+    return KHLH / denom
 
 
-def cknna(X, Y, n_neighbors=15, kernel="rbf", si=None, diag=True):
+def cknna(X, Y, n_neighbors=15, kernel="linear", si=None, diag=True):
     N = len(X)
 
-    if n_neighbors < 2:
-        raise ValueError("CKNNA requires n_neighbors >= 2.")
+    if n_neighbors < 1:
+        raise ValueError("CKNNA requires n_neighbors >= 1.")
 
     if n_neighbors >= N:
         n_neighbors = N - 1
 
-    if kernel == "rbf":
-        # Reuses your existing CKA RBF kernel construction.
-        K = cka_rbf_kernel_matrix(X, si=si)
-        L = cka_rbf_kernel_matrix(Y, si=si)
-
-    elif kernel == "linear":
-        # This is closer to the PRH implementation, which uses inner products.
+    if kernel == "linear":
         K = linear_kernel_matrix(X)
         L = linear_kernel_matrix(Y)
 
+    elif kernel == "rbf":
+        K = cka_rbf_kernel_matrix(X, si)
+        L = cka_rbf_kernel_matrix(Y, si)
+
     else:
-        raise ValueError("kernel must be either 'rbf' or 'linear'.")
+        raise ValueError("kernel must be either 'linear' or 'rbf'.")
 
     if not diag:
         for i in range(N):
             K[i, i] = 0.0
             L[i, i] = 0.0
 
-    mask_K = topk_mask_from_kernel(K, n_neighbors=n_neighbors, exclude_diag=True)
-    mask_L = topk_mask_from_kernel(L, n_neighbors=n_neighbors, exclude_diag=True)
-    mask = mask_K * mask_L
-
-    K_masked = mask * K
-    L_masked = mask * L
-    K = K * mask_K
-    L = L * mask_L
-
-    H = np.eye(N) - 1.0 / N * np.ones((N, N))
-
-    KHLH = np.trace(K_masked.dot(H).dot(L_masked).dot(H))
-    KHKH = np.trace(K.dot(H).dot(K).dot(H))
-    LHLH = np.trace(L.dot(H).dot(L).dot(H))
-
-    score = KHLH / np.sqrt(KHKH * LHLH)
+    score = cknna_from_kernels(K, L, n_neighbors=n_neighbors)
 
     return score, K, L
 
@@ -127,7 +103,7 @@ def CKNNA(
     X,
     Y,
     n_neighbors=15,
-    kernel="rbf",
+    kernel="linear",
     si=None,
     diag=True,
     get_matrices=False,
