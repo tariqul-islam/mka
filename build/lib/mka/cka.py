@@ -9,6 +9,8 @@ import random
 
 from .helper import euclidean_distances_numba, frobenius_norm_sq
 
+from sklearn.metrics.pairwise import euclidean_distances
+
 @numba.jit(nopython=True)
 def get_median_dists(x):
     N = len(x)
@@ -26,12 +28,15 @@ def linear_kernel_matrix(X):
 
     
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def cka_rbf_kernel_matrix(X, si = None):
-    dists = euclidean_distances_numba(X)
-    #print(dists)
+    dists = euclidean_distances(
+        X,
+        X,
+        squared=True,
+    )
+    
     sigma = np.median(dists) #np.median(dists) #get_median_dists(dists)
-    #print(sigma)
     
     if sigma < 10**-12:
         sigma = 1.0
@@ -40,9 +45,8 @@ def cka_rbf_kernel_matrix(X, si = None):
         #print('in block')
         sigma = si**2*sigma
     
-    #print(sigma)
     kernel = np.exp(-dists/(2*sigma))
-    #print(kernel)
+
     return kernel
     
 
@@ -75,17 +79,25 @@ def cka_rbf(X,Y,si=None, diag=True):
     
     return score, K, L
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def tcka_rbf_kernel_matrix(X, n_neighbors=15):
     N = len(X)
     dists = euclidean_distances_numba(X)
     
-    sort_idx = np.zeros((N,n_neighbors), dtype=numba.int64)
-    dists_2 = np.zeros((N, n_neighbors))
+    #sort_idx = np.zeros((N,n_neighbors)
+    #dists_2 = np.zeros((N, n_neighbors))
     
-    for i in range(N):
-        sort_idx[i,:] = np.argsort(dists[i])[1:n_neighbors+1]
-        dists_2[i,:] = dists[i,sort_idx[i,:]]
+    sort_idx = np.argsort(dists, axis=1)
+
+    # Drop the first entry, assumed to be the point itself.
+    sort_idx = sort_idx[:, 1:n_neighbors + 1]
+
+    # Gather the corresponding distances.
+    dists_2 = np.take_along_axis(
+        dists,
+        sort_idx,
+        axis=1,
+    )
     
     #sort_idx = np.argsort(dists, axis=1)
     #sort_idx = sort_idx.astype(np.int32)
