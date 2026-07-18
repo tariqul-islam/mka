@@ -2,6 +2,7 @@ README.md
 setup.py
 mka/__init__.py
 mka/cka.py
+mka/cknna.py
 mka/helper.py
 mka/umap_cka.py
 mka/umap_pre.py

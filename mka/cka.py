@@ -22,6 +22,9 @@ def get_median_dists(x):
     
     return median
 
+@numba.jit(nopython=True)
+def linear_kernel_matrix(X):
+    return X.dot(X.T)
     
 
 #@numba.jit(nopython=True)
